@@ -1,28 +1,5 @@
 #include <WaspSensorSW.h>
 #include <WaspWIFI_PRO.h>
-
-///////////////Wifi-Config///////////////////
-
-// choose socket
-uint8_t socket = SOCKET0;
-
-// WiFi AP settings (CHANGE TO USER'S AP)
-char ESSID[] = "NhutHuy";
-char PASSW[] = "0392597878";
-
-
-////////////////Variable-sensors-read////////////////
-
-float value_temp;
-float value_pH;
-//float value_pH_calculated;
-float value_orp;
-//float value_orp_calculated;
-float value_do;
-//float value_do_calculated;
-float value_cond;
-//float value_cond_calculated;
-
 // Calibration values
 
 #define cal_point_10 1.985
@@ -45,28 +22,55 @@ float value_cond;
 // Point 2 of the calibration 
 #define point2_cal 150.00
 
+//======================= WiFi AP settings (CHANGE TO USER'S AP)======================
+// choose socket
+uint8_t socket = SOCKET0;
+char ESSID[] = "NhutHuy";
+char PASSW[] = "0392597878";
+
+char type[] = "http";
+char host[] = "server-smart-water.herokuapp.com";
+char port[] = "80";
+char url[]  = "display?";
+////////////////Variable-sensors-read////////////////
+
+float value_temp; char temp_string[6];
+
+float value_pH = 7.61; char ph_string[6];
+
+float value_orp = 96.69; char orp_string[8];
+
+float value_do = 66.99; char do_string[6];
+
+float value_cond = 34.63; char cond_string[6];
+
+uint8_t battery = 0;
+
 /////////Sensors-Class//////////////
 
-char node_ID[] = "Node_1";
-
 pt1000Class TemperatureSensor;
-pHClass pHSensor;
-ORPClass ORPSensor;
-DOClass DOSensor;
-conductivityClass ConductivitySensor;
+//pHClass pHSensor;
+//ORPClass ORPSensor;
+//DOClass DOSensor;
+//conductivityClass ConductivitySensor;
 
 
 
 // define variables-system
-
+char filename[]="DATA.TXT";
+uint8_t sd_answer;
+int32_t number_line;
+char *line[20];
+uint8_t count_not_send = 0;
+uint8_t i;
+char node_ID[] = "N01";
 uint8_t error;
-uint8_t status;
 unsigned long previous;
-
-uint8_t i = 0;
-char body[200];
+char body[90];
 
 
+
+//=======================WIFI Config=====================================
 void configWifi()
 {
   USB.println(F("****************Wifi-Config****************\n"));
@@ -133,26 +137,40 @@ void configWifi()
     USB.println(F("5. WiFi softReset ERROR"));
   }
 
-   USB.println(F("****************Finished-Wifi-Config****************\n"));
+
+//  6.Set URL
+  error = WIFI_PRO.setURL( type, host, port, url );
+
+  if (error == 0)
+  {
+     USB.println(F("2. setURL OK"));
+  }else
+  {
+     USB.println(F("2. Error calling 'setURL' function"));
+     WIFI_PRO.printErrorCode();
+  }
+
+  
+
+  USB.println(F("****************Finished-Wifi-Config****************\n"));
 }
 
 
 void setup()
 {
   //config the calibration values
-  pHSensor.setCalibrationPoints(cal_point_10, cal_point_7, cal_point_4, cal_temp);
-  DOSensor.setCalibrationPoints(air_calibration, zero_calibration);
-  ConductivitySensor.setCalibrationPoints(point1_cond, point1_cal, point2_cond, point2_cal);
- 
-  //config wifi
-  configWifi();
- 
+//  pHSensor.setCalibrationPoints(cal_point_10, cal_point_7, cal_point_4, cal_temp);
+//  DOSensor.setCalibrationPoints(air_calibration, zero_calibration);
+//  ConductivitySensor.setCalibrationPoints(point1_cond, point1_cal, point2_cond, point2_cal);
+  
   //power on SW
   Water.ON();
   SD.ON();
+  RTC.ON();
+  configWifi();
+  
   delay(2000);//wait the Smart Water stability
-   
-   // get current time
+  // get current time
   previous = millis();
 }
 
@@ -160,87 +178,166 @@ void setup()
 void loop()
 {
 
-  // 2. Read sensors
+//========================== Read sensors===================================================
 
   // Read the temperature sensor
   value_temp = TemperatureSensor.readTemperature();
 
-  // Read the ph sensor
-  value_pH = pHSensor.readpH();
-  // Convert the value read with the information obtained in calibration
-  value_pH = pHSensor.pHConversion(value_pH,value_temp);
-  
-  // Reading of the ORP sensor
-  value_orp = ORPSensor.readORP();
-  // Apply the calibration offset
-  value_orp = value_orp - calibration_offset;
-  
-  // Reading of the DO sensor
-  value_do = DOSensor.readDO();
-  // Conversion from volts into dissolved oxygen percentage
-  value_do = DOSensor.DOConversion(value_do);
+//  // Read the ph sensor
+//  value_pH = pHSensor.readpH();
+//  // Convert the value read with the information obtained in calibration
+//  value_pH = pHSensor.pHConversion(value_pH,value_temp);
+//  
+//  // Reading of the ORP sensor
+//  value_orp = ORPSensor.readORP();
+//  // Apply the calibration offset
+//  value_orp = value_orp - calibration_offset;
+//  
+//  // Reading of the DO sensor
+//  value_do = DOSensor.readDO();
+//  // Conversion from volts into dissolved oxygen percentage
+//  value_do = DOSensor.DOConversion(value_do);
+//
+//  // Reading of the Conductivity sensor
+//  value_cond = ConductivitySensor.readConductivity();
+//  // Conversion from resistance into ms/cm
+//  value_cond = ConductivitySensor.conductivityConversion(value_cond);
 
-  // Reading of the Conductivity sensor
-  value_cond = ConductivitySensor.readConductivity();
-  // Conversion from resistance into ms/cm
-  value_cond = ConductivitySensor.conductivityConversion(value_cond);
+    battery = PWR.getBatteryLevel();
+//=========================================Convert float to string and create body=========================================
 
-  
-  
+ Utils.float2String(value_temp,temp_string,2);
+ Utils.float2String(value_pH,ph_string,2);
+ Utils.float2String(value_orp,orp_string,2);
+ Utils.float2String(value_do,do_string,2);
+ Utils.float2String(value_cond,cond_string,2);
+
+ value_pH+=1;
+ value_orp+=5;
+ value_do+=3;
+ value_cond+=4;
  
-   // Check if module is connected
+//create body
+
+ snprintf(body,90,"id=%s&temp=%s&ph=%s&orp=%s&do=%s&co=%s&bat=%d&epocht=%ld\n",node_ID,temp_string,ph_string,orp_string,do_string,cond_string,battery,RTC.getEpochTime());
+ USB.println(body);
+ 
+//==================================================SEND DATA===========================================================================
+  
+   
+   
   if (WIFI_PRO.isConnected() == true)
   {    
-    USB.print(F("WiFi is connected OK"));
-    USB.print(F(" Time(ms):"));    
-    USB.println(millis()-previous); 
+      USB.println(F("Co ket noi wifi"));
+      count_not_send = 0;
+      number_line=SD.numln(filename);
+      if(number_line!=0 )
+      {
+        USB.print(F("file co du lieu "));
+        USB.println(number_line);
+        SD.showFile(filename);
+        for(i = 0; i < number_line ; i++)
+        {
+          USB.println(F("------------READ Line-----------------"));
+          SD.catln(filename,i,1);
+          USB.println( SD.buffer );
 
-    error = WIFI_PRO.getIP();
-
-    if(error == 0)
-    {
-      USB.print(F("Ip address : "));
-      USB.println(WIFI_PRO._ip);
-    }
-    else
-    {
-      USB.println(F("getIP error"));
-    }
-
-    USB.print(F("Data :"));
-    USB.println(body);
-    delay(20000);
+          error = WIFI_PRO.post(SD.buffer);
+          
+          if(error == 0)
+          {
+            USB.print(F("3.1. HTTP POST OK. "));
+            USB.print(F("HTTP Time from OFF state (ms):"));
+            USB.println(millis()-previous);
+          }
+          else
+          {
+            USB.println(F("Loi gui http"));
+            USB.println(F("Them vao line"));
+            line[count_not_send] = (char*)malloc(90*sizeof(char));
+            strcpy(line[count_not_send++],SD.buffer);
+          }  
+          USB.println(F("----------- END-----------------")); 
+        }
+      }
+      
+      USB.println(F("Gui Du lieu moi doc"));
+      error = WIFI_PRO.post(body);
+      if(error == 0)
+      {
+         USB.print(F("3.1. HTTP POST OK. "));
+         USB.print(F("HTTP Time from OFF state (ms):"));
+         USB.println(millis()-previous);
+      }
+      else
+      {
+          USB.println(F("Loi gui http NEW"));
+          USB.println(F("Them vao line"));
+          line[count_not_send] = (char*)malloc(90*sizeof(char));
+          strcpy(line[count_not_send++],body);
+      }
+        
+        USB.println(F("Xoa File"));
+        sd_answer = SD.del(filename);
+    
+        if( sd_answer == 1 )
+        {
+          USB.println(F("file deleted"));
+        }
+        else 
+        {
+          USB.println(F("file NOT deleted"));  
+        }
+  
+        USB.println(F("Tao lai file"));
+        sd_answer = SD.create(filename);
+    
+        if( sd_answer == 1 )
+        {
+          USB.println(F("file created"));
+        }
+        else 
+        {
+          USB.println(F("file NOT created"));  
+        }
+  
+        USB.println(F("neu co line loi them vao file"));
+        if(count_not_send!=0)
+        {
+          USB.print(F("Da co loi so loi la :"));
+          USB.println(count_not_send,DEC);
+          USB.println(F("Start append in file"));
+          for(i = 0; i < count_not_send ; i++)
+          {
+            SD.append(filename,line[i]);
+            free(line[i]);    
+          }
+          USB.println(F("Done"));
+        }
   }
   else
   {
     USB.print(F("WiFi is connected ERROR")); 
     USB.print(F(" Time(ms):"));    
-    USB.println(millis()-previous);  
+    USB.println(millis()-previous);
+    USB.println(F("Them vao cuoi file"));
+    SD.append(filename,body);
   }
 
 
-//////////////DEEP SLEEP MODE//////////////////////////////////////////
-  USB.println(F("enter deep sleep"));                               ///
-  // Go to sleep disconnecting all switches and modules             ///
-  // After 10 seconds, Waspmote wakes up thanks to the RTC Alarm    ///
-  PWR.deepSleep("00:00:00:20",RTC_OFFSET,RTC_ALM1_MODE1,ALL_OFF);   ///
-                                                                    ///        
-  USB.ON();                                                         ///
-  USB.println(F("\nwake up"));                                      ///
-                                                                    ///
-  // After wake up check interruption source                        ///
-  if( intFlag & RTC_INT )                                           ///
-  {                                                                 ///
-    // clear interruption flag                                      ///
-    intFlag &= ~(RTC_INT);                                          ///
-                                                                    ///
-    USB.println(F("---------------------"));                        ///
-    USB.println(F("RTC INT captured"));                             ///
-    USB.println(F("---------------------"));                        ///
-  }                                                                 ///
-///////////////////////////////////////////////////////////////////////
-  
-  // 1. Switch ON the WiFi module
+
+
+//===============================ENTER DEEP SLEEP MODE===================================
+  USB.println(F("enter deep sleep"));
+  // Go to sleep disconnecting all switches and modules
+  // After 15 Min, Waspmote wakes up thanks to the RTC Alarm
+  PWR.deepSleep("00:00:15:00",RTC_OFFSET,RTC_ALM1_MODE1,ALL_OFF);
+  USB.println(F("\nwake up"));
+      
+  USB.ON();
+  RTC.ON();
+  SD.ON();
+  Water.ON();
   error = WIFI_PRO.ON(socket);
 
   if (error == 0)
@@ -251,6 +348,20 @@ void loop()
   {
     USB.println(F("1. WiFi did not initialize correctly"));
   }
+  
+  
+ 
+  // After wake up check interruption sourc
+  if( intFlag & RTC_INT )
+  {
+    // clear interruption flag
+    intFlag &= ~(RTC_INT);
+
+    USB.println(F("---------------------"));
+    USB.println(F("RTC INT captured"));
+    USB.println(F("---------------------")); 
+  }
+
   // get current time
   previous = millis();
 }
