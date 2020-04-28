@@ -7,55 +7,53 @@
 uint8_t socket = SOCKET0;
 
 // WiFi AP settings (CHANGE TO USER'S AP)
-char ESSID[] = "PHAN THANH NHON";
-char PASSW[] = "01692597878";
+char ESSID[] = "NhutHuy";
+char PASSW[] = "0392597878";
 
 
 ////////////////Variable-sensors-read////////////////
 
-//float value_pH;
 float value_temp;
+float value_pH;
 //float value_pH_calculated;
-//float value_orp;
+float value_orp;
 //float value_orp_calculated;
-//float value_di;
-//float value_do;
+float value_do;
 //float value_do_calculated;
-//float value_cond;
+float value_cond;
 //float value_cond_calculated;
 
 // Calibration values
 
-//#define cal_point_10 1.985
-//#define cal_point_7 2.070
-//#define cal_point_4 2.227
+#define cal_point_10 1.985
+#define cal_point_7 2.070
+#define cal_point_4 2.227
 // Temperature at which calibration was carried out
 #define cal_temp 23.7
 // Offset obtained from sensor calibration
-//#define calibration_offset 0.0
+#define calibration_offset 0.0
 // Calibration of the sensor in normal air
-//#define air_calibration 2.65
+#define air_calibration 2.65
 // Calibration of the sensor under 0% solution
-//#define zero_calibration 0.0
+#define zero_calibration 0.0
 // Value 1 used to calibrate the sensor
-//#define point1_cond 10500
+#define point1_cond 10500
 // Value 2 used to calibrate the sensor
-//#define point2_cond 40000
+#define point2_cond 40000
 // Point 1 of the calibration 
-//#define point1_cal 197.00
+#define point1_cal 197.00
 // Point 2 of the calibration 
-//#define point2_cal 150.00
+#define point2_cal 150.00
 
 /////////Sensors-Class//////////////
 
 char node_ID[] = "Node_1";
 
 pt1000Class TemperatureSensor;
-//pHClass pHSensor;
-//ORPClass ORPSensor;
-//DIClass DISensor;
-//DOClass DOSensor;
-//conductivityClass ConductivitySensor;
+pHClass pHSensor;
+ORPClass ORPSensor;
+DOClass DOSensor;
+conductivityClass ConductivitySensor;
 
 
 
@@ -65,7 +63,7 @@ uint8_t error;
 uint8_t status;
 unsigned long previous;
 
-int i = 0;
+uint8_t i = 0;
 char body[200];
 
 
@@ -142,15 +140,16 @@ void configWifi()
 void setup()
 {
   //config the calibration values
-//  pHSensor.setCalibrationPoints(cal_point_10, cal_point_7, cal_point_4, cal_temp);
-//  DOSensor.setCalibrationPoints(air_calibration, zero_calibration);
-//  ConductivitySensor.setCalibrationPoints(point1_cond, point1_cal, point2_cond, point2_cal);
+  pHSensor.setCalibrationPoints(cal_point_10, cal_point_7, cal_point_4, cal_temp);
+  DOSensor.setCalibrationPoints(air_calibration, zero_calibration);
+  ConductivitySensor.setCalibrationPoints(point1_cond, point1_cal, point2_cond, point2_cal);
  
   //config wifi
   configWifi();
  
   //power on SW
   Water.ON();
+  SD.ON();
   delay(2000);//wait the Smart Water stability
    
    // get current time
@@ -163,29 +162,32 @@ void loop()
 
   // 2. Read sensors
 
-  // Read the ph sensor
-  //value_pH = pHSensor.readpH();
   // Read the temperature sensor
   value_temp = TemperatureSensor.readTemperature();
+
+  // Read the ph sensor
+  value_pH = pHSensor.readpH();
   // Convert the value read with the information obtained in calibration
-  //value_pH_calculated = pHSensor.pHConversion(value_pH,value_temp);  
+  value_pH = pHSensor.pHConversion(value_pH,value_temp);
+  
   // Reading of the ORP sensor
-  //value_orp = ORPSensor.readORP();
+  value_orp = ORPSensor.readORP();
   // Apply the calibration offset
-  //value_orp_calculated = value_orp - calibration_offset;
-  // Reading of the DI sensor
-  //value_di = DISensor.readDI();
-  // Reading of the ORP sensor
-  //value_do = DOSensor.readDO();
+  value_orp = value_orp - calibration_offset;
+  
+  // Reading of the DO sensor
+  value_do = DOSensor.readDO();
   // Conversion from volts into dissolved oxygen percentage
-  //value_do_calculated = DOSensor.DOConversion(value_do);
+  value_do = DOSensor.DOConversion(value_do);
+
   // Reading of the Conductivity sensor
-  //value_cond = ConductivitySensor.readConductivity();
+  value_cond = ConductivitySensor.readConductivity();
   // Conversion from resistance into ms/cm
-  //value_cond_calculated = ConductivitySensor.conductivityConversion(value_cond);
+  value_cond = ConductivitySensor.conductivityConversion(value_cond);
+
+  
+  
  
-  body[i++] = 'h';
-  body[i] = '\0'; 
    // Check if module is connected
   if (WIFI_PRO.isConnected() == true)
   {    
@@ -216,27 +218,28 @@ void loop()
     USB.println(millis()-previous);  
   }
 
-  USB.println(F("enter deep sleep"));
-  // Go to sleep disconnecting all switches and modules
-  // After 10 seconds, Waspmote wakes up thanks to the RTC Alarm
-  PWR.deepSleep("00:00:00:20",RTC_OFFSET,RTC_ALM1_MODE1,ALL_OFF);
 
-  USB.ON();
-  USB.println(F("\nwake up"));
+//////////////DEEP SLEEP MODE//////////////////////////////////////////
+  USB.println(F("enter deep sleep"));                               ///
+  // Go to sleep disconnecting all switches and modules             ///
+  // After 10 seconds, Waspmote wakes up thanks to the RTC Alarm    ///
+  PWR.deepSleep("00:00:00:20",RTC_OFFSET,RTC_ALM1_MODE1,ALL_OFF);   ///
+                                                                    ///        
+  USB.ON();                                                         ///
+  USB.println(F("\nwake up"));                                      ///
+                                                                    ///
+  // After wake up check interruption source                        ///
+  if( intFlag & RTC_INT )                                           ///
+  {                                                                 ///
+    // clear interruption flag                                      ///
+    intFlag &= ~(RTC_INT);                                          ///
+                                                                    ///
+    USB.println(F("---------------------"));                        ///
+    USB.println(F("RTC INT captured"));                             ///
+    USB.println(F("---------------------"));                        ///
+  }                                                                 ///
+///////////////////////////////////////////////////////////////////////
   
-  // After wake up check interruption source
-  if( intFlag & RTC_INT )
-  {
-    // clear interruption flag
-    intFlag &= ~(RTC_INT);
-    
-    USB.println(F("---------------------"));
-    USB.println(F("RTC INT captured"));
-    USB.println(F("---------------------"));
-   // Utils.blinkLEDs(300);
-  //  Utils.blinkLEDs(300);
-   // Utils.blinkLEDs(300);
-  }
   // 1. Switch ON the WiFi module
   error = WIFI_PRO.ON(socket);
 
