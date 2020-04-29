@@ -158,18 +158,18 @@ void configWifi()
 
 void setup()
 {
-  //config the calibration values
-//  pHSensor.setCalibrationPoints(cal_point_10, cal_point_7, cal_point_4, cal_temp);
-//  DOSensor.setCalibrationPoints(air_calibration, zero_calibration);
-//  ConductivitySensor.setCalibrationPoints(point1_cond, point1_cal, point2_cond, point2_cal);
+//config the calibration values
+//pHSensor.setCalibrationPoints(cal_point_10, cal_point_7, cal_point_4, cal_temp);
+//DOSensor.setCalibrationPoints(air_calibration, zero_calibration);
+//ConductivitySensor.setCalibrationPoints(point1_cond, point1_cal, point2_cond, point2_cal);
   
   //power on SW
   Water.ON();
   SD.ON();
   RTC.ON();
   configWifi();
-  
-  delay(2000);//wait the Smart Water stability
+//wait the Smart Water stability  
+  delay(2000);
   // get current time
   previous = millis();
 }
@@ -331,7 +331,7 @@ void loop()
   USB.println(F("enter deep sleep"));
   // Go to sleep disconnecting all switches and modules
   // After 15 Min, Waspmote wakes up thanks to the RTC Alarm
-  PWR.deepSleep("00:00:15:00",RTC_OFFSET,RTC_ALM1_MODE1,ALL_OFF);
+  PWR.deepSleep("00:00:01:00",RTC_OFFSET,RTC_ALM1_MODE1,ALL_OFF);
   USB.println(F("\nwake up"));
       
   USB.ON();
@@ -365,5 +365,4 @@ void loop()
   // get current time
   previous = millis();
 }
-
 
