@@ -19,14 +19,14 @@
 #define point2_cond 40000
 // Point 1 of the calibration 
 #define point1_cal 197.00
-// Point 2 of the calibration 
+// Point 2 of the calibration   
 #define point2_cal 150.00
 
 //======================= WiFi AP settings (CHANGE TO USER'S AP)======================
 // choose socket
 uint8_t socket = SOCKET0;
-char ESSID[] = "NhutHuy";
-char PASSW[] = "0392597878";
+char ESSID[] = "QUE HAN 1";
+char PASSW[] = "nguyenthiquehan";
 
 char type[] = "http";
 char host[] = "server-smart-water.herokuapp.com";
@@ -212,11 +212,6 @@ void loop()
  Utils.float2String(value_do,do_string,2);
  Utils.float2String(value_cond,cond_string,2);
 
- value_pH+=1;
- value_orp+=5;
- value_do+=3;
- value_cond+=4;
- 
 //create body
 
  snprintf(body,90,"id=%s&temp=%s&ph=%s&orp=%s&do=%s&co=%s&bat=%d&epocht=%ld\n",node_ID,temp_string,ph_string,orp_string,do_string,cond_string,battery,RTC.getEpochTime());
